@@ -1,8 +1,10 @@
+import time
 import requests
 from bs4 import BeautifulSoup as bs
 import json
 import time
 import os
+import string
 
 
 FILE_NAME_BACKUP = 'artist_data_backup~temp.json'
@@ -13,7 +15,13 @@ text_with_url = {}      # anchor text  with href value dictionary
 artist_with_url = {}    # artist name with url link dictionary
 
 # a structured dict to write json format
-structured_dict = {"artist":"artist_name","link":"link_name","music_link":[]}
+
+tracks_list = []
+structured_dict = {
+    "artist":"artist_name",
+    "link":"link_name",
+    "tracks": []
+}
 
 # to get the content of a page
 def get_soup(url):
@@ -23,19 +31,41 @@ def get_soup(url):
     soup = bs(r.content, 'html.parser')
     return soup
 
+# show the final statistics of the json file 
 def statistics_info(file_name):
     fh = open(file_name, "r").read()
     j = json.loads(fh)
-    total_music = []
+    total_music = 0
     for i in j:
-        music_link_list = i["music_link"]
+        music_link_list = i["tracks"]
         artist = i["artist"]
         print(f"{artist} = {len(music_link_list)}")
-        for music_link in music_link_list:
-            total_music.append(music_link)
+        total_music += len(music_link_list)
+        music_link_list = []
 
     print(f"Total Artists= {len(j)}")
-    print(f"Total Musics= {len(total_music)}")
+    print(f"Total Musics= {(total_music)}")
+
+# modify track name from the url string
+def replacer(name, artist):
+    separator = ' '
+    punc = string.punctuation
+    for p in punc:
+        if p in name:
+            name = name.replace(p, ' ')
+    try:
+        music_name = name.replace(artist,'')
+        music_name = music_name.split()
+        if len(music_name) > 2:
+            music_name = separator.join(music_name[:2])
+        else:
+            music_name = separator.join(music_name[:])
+    except:
+        music_name = name
+
+    return music_name
+
+
 
 main_url = "https://www.zefenonline.com/music/amharic/amharicmusic.html"
 
@@ -79,7 +109,33 @@ for artist_name,artist_url in artist_with_url.items():
                 final_link = link
             music_link.append(final_link)
 
-    structured_dict["music_link"] = music_link
+            track_name = final_link.split('/')
+            try:
+                track_name = track_name[6].split('.')[0]
+                track_name = replacer(track_name,artist_name)
+            except:
+                track_name = "Unknown"
+            tracks_dict = {
+                    "tracks":[ 
+                    { 
+                        "name":"track_name",
+                        "artist":"artist_name",
+                        "source":"mp3_source",
+                        "url":"mp3_source",
+                        "favourited": 0
+                    } 
+                    ]}
+            tracks_dict["tracks"][0]["name"] = track_name
+            tracks_dict["tracks"][0]["artist"] = artist_name
+            tracks_dict["tracks"][0]["source"] = final_link
+            tracks_dict["tracks"][0]["url"] = final_link
+            tracks_list.append(tracks_dict["tracks"][0])
+            
+            tracks_dict = {}
+
+    structured_dict["tracks"] = tracks_list
+    tracks_list = []
+
     list_of_dict.append(structured_dict)
     
     # if fail in the middle... some datas are backupded
